@@ -1,0 +1,9 @@
+{
+  "name": "@coparenting/mobile",
+  "private": true,
+  "version": "0.1.0",
+  "scripts": {
+    "dev": "echo 'Wire Expo app initialization here'",
+    "build": "echo 'Add mobile build workflow here'"
+  }
+}

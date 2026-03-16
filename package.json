@@ -1,0 +1,15 @@
+{
+  "name": "coparenting-app",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "echo 'Define app-specific dev scripts as services are added'",
+    "build": "echo 'Define build pipeline once app packages are wired'",
+    "lint": "echo 'Add linting once toolchain is installed'",
+    "test": "echo 'Add tests once first modules are implemented'"
+  }
+}
