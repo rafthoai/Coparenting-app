@@ -1,6 +1,5 @@
 export interface RepositoryRecord {
   id: string;
-  [key: string]: unknown;
 }
 
 export interface Repository<T extends RepositoryRecord> {

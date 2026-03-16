@@ -1,3 +1,10 @@
+import {
+  bootstrapAndPersistAuthUser,
+  createAndPersistChild,
+  createAndPersistCoParentInvite,
+  createAndPersistHousehold
+} from '@coparenting/api';
+
 export interface OnboardingState {
   userId?: string;
   email: string;
@@ -21,23 +28,46 @@ export function createInitialOnboardingState(): OnboardingState {
 }
 
 export async function bootstrapUser(state: OnboardingState): Promise<OnboardingState> {
+  const user = await bootstrapAndPersistAuthUser({
+    email: state.email,
+    fullName: state.fullName
+  });
+
   return {
     ...state,
-    userId: state.userId ?? `user-${crypto.randomUUID()}`
+    userId: user.id
   };
 }
 
 export async function createHousehold(state: OnboardingState): Promise<OnboardingState> {
+  if (!state.userId) {
+    throw new Error('Cannot create household before user bootstrap');
+  }
+
+  const household = await createAndPersistHousehold({
+    ownerUserId: state.userId,
+    householdName: state.householdName
+  });
+
   return {
     ...state,
-    householdId: state.householdId ?? `household-${crypto.randomUUID()}`
+    householdId: household.id
   };
 }
 
 export async function createChild(state: OnboardingState): Promise<OnboardingState> {
+  if (!state.householdId) {
+    throw new Error('Cannot create child before household exists');
+  }
+
+  const child = await createAndPersistChild({
+    householdId: state.householdId,
+    name: state.childName
+  });
+
   return {
     ...state,
-    childId: state.childId ?? `child-${crypto.randomUUID()}`
+    childId: child.id
   };
 }
 
@@ -46,8 +76,18 @@ export async function createInvite(state: OnboardingState): Promise<OnboardingSt
     return state;
   }
 
+  if (!state.householdId || !state.userId) {
+    throw new Error('Cannot create invite before household and user exist');
+  }
+
+  const invite = await createAndPersistCoParentInvite({
+    householdId: state.householdId,
+    invitedByUserId: state.userId,
+    inviteeEmail: state.inviteeEmail
+  });
+
   return {
     ...state,
-    inviteId: state.inviteId ?? `invite-${crypto.randomUUID()}`
+    inviteId: invite.id
   };
 }
