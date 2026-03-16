@@ -31,12 +31,17 @@ function validateRecurringRule(rule: RecurringCustodyRule): RuleConflict[] {
     });
   }
 
-  if (rule.ruleType === 'alternating_weekend' && !rule.recurrencePattern.alternatingAnchorDate) {
+  if (
+    (rule.ruleType === 'alternating_weekend' ||
+      rule.ruleType === 'alternating_week' ||
+      rule.ruleType === 'rotating_pattern') &&
+    !rule.recurrencePattern.alternatingAnchorDate
+  ) {
     conflicts.push({
       type: 'missing-anchor-date',
       severity: 'blocker',
       ruleIds: [rule.id],
-      message: `Alternating weekend rule ${rule.id} is missing an anchor date.`
+      message: `Rule ${rule.id} is missing an anchor date.`
     });
   }
 

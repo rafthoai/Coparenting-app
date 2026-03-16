@@ -196,11 +196,98 @@ function generateAlternatingWeekends(
   return mergeContiguousSegments(segments);
 }
 
+function generateAlternatingWeeks(
+  childId: string,
+  window: TimeWindow,
+  rules: RecurringCustodyRule[]
+): ScheduleSegment[] {
+  const segments: ScheduleSegment[] = [];
+  const alternatingWeekRules = rules.filter((rule) => rule.ruleType === 'alternating_week');
+
+  for (const rule of alternatingWeekRules) {
+    const anchor = rule.recurrencePattern.alternatingAnchorDate;
+    if (!anchor) continue;
+
+    for (let cursor = startOfDay(window.startsAt); cursor < window.endsAt; cursor = addDays(cursor, 7)) {
+      const weeksSinceAnchor = Math.floor((startOfDay(cursor).getTime() - startOfDay(anchor).getTime()) / (7 * DAY_MS));
+      const isOdd = Math.abs(weeksSinceAnchor) % 2 === 1;
+      const expectsOdd = rule.recurrencePattern.alternatingWeekParity === 'odd';
+      const matchesParity = expectsOdd ? isOdd : !isOdd;
+      if (!matchesParity) continue;
+
+      const overlapWindow = intersect({ startsAt: cursor, endsAt: addDays(cursor, 7) }, window);
+      if (!overlapWindow) continue;
+
+      segments.push({
+        childId,
+        caregiverMemberId: rule.caregiverMemberId,
+        startsAt: overlapWindow.startsAt,
+        endsAt: overlapWindow.endsAt,
+        sourceLayer: 'base-custody-pattern',
+        sourceRuleId: rule.id
+      });
+    }
+  }
+
+  return mergeContiguousSegments(segments);
+}
+
+function generateRotatingPatterns(
+  childId: string,
+  window: TimeWindow,
+  rules: RecurringCustodyRule[]
+): ScheduleSegment[] {
+  const segments: ScheduleSegment[] = [];
+  const rotatingRules = rules.filter((rule) => rule.ruleType === 'rotating_pattern');
+
+  for (const rule of rotatingRules) {
+    const anchor = rule.recurrencePattern.alternatingAnchorDate;
+    const patternDays = rule.recurrencePattern.rotatingPatternDays;
+    const caregivers = rule.recurrencePattern.rotatingCaregiverMemberIds;
+
+    if (!anchor || !patternDays || !caregivers) continue;
+    if (patternDays.length === 0 || patternDays.length !== caregivers.length) continue;
+
+    let patternIndex = 0;
+    let cursor = startOfDay(anchor);
+
+    while (cursor < window.endsAt) {
+      const spanDays = patternDays[patternIndex];
+      const caregiverMemberId = caregivers[patternIndex];
+      const segmentWindow = { startsAt: cursor, endsAt: addDays(cursor, spanDays) };
+      const overlapWindow = intersect(segmentWindow, window);
+
+      if (overlapWindow) {
+        segments.push({
+          childId,
+          caregiverMemberId,
+          startsAt: overlapWindow.startsAt,
+          endsAt: overlapWindow.endsAt,
+          sourceLayer: 'base-custody-pattern',
+          sourceRuleId: rule.id
+        });
+      }
+
+      cursor = addDays(cursor, spanDays);
+      patternIndex = (patternIndex + 1) % patternDays.length;
+    }
+  }
+
+  return mergeContiguousSegments(segments);
+}
+
 export function generateSchedule(input: GenerateScheduleInput): ScheduleSegment[] {
   const baseWeekly = generateWeeklyDayAssignments(input.childId, input.window, input.recurringRules);
   const alternatingWeekends = generateAlternatingWeekends(input.childId, input.window, input.recurringRules);
+  const alternatingWeeks = generateAlternatingWeeks(input.childId, input.window, input.recurringRules);
+  const rotatingPatterns = generateRotatingPatterns(input.childId, input.window, input.recurringRules);
 
-  let segments = mergeContiguousSegments([...baseWeekly, ...alternatingWeekends]);
+  let segments = mergeContiguousSegments([
+    ...baseWeekly,
+    ...alternatingWeekends,
+    ...alternatingWeeks,
+    ...rotatingPatterns
+  ]);
   segments = applyOverrides(segments, input.holidayOverrides ?? [], 'holiday-overrides');
   segments = applyOverrides(segments, input.schoolBreakOverrides ?? [], 'school-break-overrides');
   segments = applyOverrides(segments, input.exceptions ?? [], 'approved-swaps-and-exceptions');
