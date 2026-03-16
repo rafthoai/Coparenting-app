@@ -1,16 +1,10 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo } from 'react';
 import { SafeAreaView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
-
-type Step = 'auth' | 'household' | 'child' | 'invite' | 'today';
+import { Step, useOnboarding } from './src/state/use-onboarding';
 
 export default function App() {
-  const [step, setStep] = useState<Step>('auth');
-  const [email, setEmail] = useState('');
-  const [fullName, setFullName] = useState('');
-  const [householdName, setHouseholdName] = useState('');
-  const [childName, setChildName] = useState('');
-  const [inviteeEmail, setInviteeEmail] = useState('');
+  const { step, state, setState, canContinue, isSubmitting, next, back } = useOnboarding();
 
   const subtitle = useMemo(() => {
     switch (step) {
@@ -23,7 +17,7 @@ export default function App() {
       case 'invite':
         return 'Invite the co-parent or skip for now.';
       case 'today':
-        return 'This is the first version of Today + Handoff.';
+        return 'This screen now reflects real onboarding state.';
       default:
         return '';
     }
@@ -38,11 +32,13 @@ export default function App() {
         <Text style={styles.subtitle}>{subtitle}</Text>
       </View>
 
-      <View style={styles.card}>{renderStep({ step, email, setEmail, fullName, setFullName, householdName, setHouseholdName, childName, setChildName, inviteeEmail, setInviteeEmail })}</View>
+      <View style={styles.card}>
+        {renderStep({ step, state, setState })}
+      </View>
 
       <View style={styles.footer}>
         {step !== 'auth' ? (
-          <TouchableOpacity style={styles.secondaryButton} onPress={() => setStep(previousStep(step))}>
+          <TouchableOpacity style={styles.secondaryButton} onPress={back}>
             <Text style={styles.secondaryButtonText}>Back</Text>
           </TouchableOpacity>
         ) : (
@@ -50,8 +46,12 @@ export default function App() {
         )}
 
         {step !== 'today' ? (
-          <TouchableOpacity style={styles.primaryButton} onPress={() => setStep(nextStep(step))}>
-            <Text style={styles.primaryButtonText}>{step === 'invite' ? 'Continue' : 'Next'}</Text>
+          <TouchableOpacity
+            style={[styles.primaryButton, !canContinue && styles.primaryButtonDisabled]}
+            onPress={next}
+            disabled={!canContinue || isSubmitting}
+          >
+            <Text style={styles.primaryButtonText}>{isSubmitting ? 'Saving…' : step === 'invite' ? 'Continue' : 'Next'}</Text>
           </TouchableOpacity>
         ) : null}
       </View>
@@ -61,38 +61,84 @@ export default function App() {
 
 function renderStep(props: {
   step: Step;
-  email: string;
-  setEmail: (value: string) => void;
-  fullName: string;
-  setFullName: (value: string) => void;
-  householdName: string;
-  setHouseholdName: (value: string) => void;
-  childName: string;
-  setChildName: (value: string) => void;
-  inviteeEmail: string;
-  setInviteeEmail: (value: string) => void;
+  state: {
+    email: string;
+    fullName: string;
+    householdName: string;
+    childName: string;
+    inviteeEmail: string;
+    userId?: string;
+    householdId?: string;
+    childId?: string;
+    inviteId?: string;
+  };
+  setState: React.Dispatch<
+    React.SetStateAction<{
+      email: string;
+      fullName: string;
+      householdName: string;
+      childName: string;
+      inviteeEmail: string;
+      userId?: string;
+      householdId?: string;
+      childId?: string;
+      inviteId?: string;
+    }>
+  >;
 }) {
   switch (props.step) {
     case 'auth':
       return (
         <>
-          <Field label="Email" value={props.email} onChangeText={props.setEmail} placeholder="rafa@example.com" />
-          <Field label="Full name" value={props.fullName} onChangeText={props.setFullName} placeholder="Rafael" />
+          <Field
+            label="Email"
+            value={props.state.email}
+            onChangeText={(value) => props.setState((current) => ({ ...current, email: value }))}
+            placeholder="rafa@example.com"
+          />
+          <Field
+            label="Full name"
+            value={props.state.fullName}
+            onChangeText={(value) => props.setState((current) => ({ ...current, fullName: value }))}
+            placeholder="Rafael"
+          />
         </>
       );
     case 'household':
-      return <Field label="Household name" value={props.householdName} onChangeText={props.setHouseholdName} placeholder="Rafa + Co-parent" />;
+      return (
+        <Field
+          label="Household name"
+          value={props.state.householdName}
+          onChangeText={(value) => props.setState((current) => ({ ...current, householdName: value }))}
+          placeholder="Rafa + Co-parent"
+        />
+      );
     case 'child':
-      return <Field label="Child name" value={props.childName} onChangeText={props.setChildName} placeholder="Emma" />;
+      return (
+        <Field
+          label="Child name"
+          value={props.state.childName}
+          onChangeText={(value) => props.setState((current) => ({ ...current, childName: value }))}
+          placeholder="Emma"
+        />
+      );
     case 'invite':
-      return <Field label="Co-parent email" value={props.inviteeEmail} onChangeText={props.setInviteeEmail} placeholder="coparent@example.com" />;
+      return (
+        <Field
+          label="Co-parent email"
+          value={props.state.inviteeEmail}
+          onChangeText={(value) => props.setState((current) => ({ ...current, inviteeEmail: value }))}
+          placeholder="coparent@example.com"
+        />
+      );
     case 'today':
       return (
         <View style={styles.todayWrap}>
-          <InfoBlock label="Current caregiver" value="Parent A" />
+          <InfoBlock label="User" value={props.state.fullName || 'Not set'} />
+          <InfoBlock label="Household" value={props.state.householdName || 'Not set'} />
+          <InfoBlock label="Child" value={props.state.childName || 'Not set'} />
+          <InfoBlock label="Invite status" value={props.state.inviteId ? 'Invite created' : 'No invite sent yet'} />
           <InfoBlock label="Next handoff" value="Sunday · 5:00 PM" />
-          <InfoBlock label="Pending approvals" value="1 swap request" />
-          <InfoBlock label="Recent update" value="School pickup confirmed" />
         </View>
       );
   }
@@ -139,36 +185,6 @@ function screenTitle(step: Step) {
       return 'Invite co-parent';
     case 'today':
       return 'Today + Handoff';
-  }
-}
-
-function nextStep(step: Step): Step {
-  switch (step) {
-    case 'auth':
-      return 'household';
-    case 'household':
-      return 'child';
-    case 'child':
-      return 'invite';
-    case 'invite':
-      return 'today';
-    case 'today':
-      return 'today';
-  }
-}
-
-function previousStep(step: Step): Step {
-  switch (step) {
-    case 'auth':
-      return 'auth';
-    case 'household':
-      return 'auth';
-    case 'child':
-      return 'household';
-    case 'invite':
-      return 'child';
-    case 'today':
-      return 'invite';
   }
 }
 
@@ -221,6 +237,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 14,
     borderRadius: 14
+  },
+  primaryButtonDisabled: {
+    backgroundColor: '#b8c0ff'
   },
   primaryButtonText: {
     color: '#ffffff',
