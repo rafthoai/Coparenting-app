@@ -1,3 +1,9 @@
+import {
+  childRepository,
+  householdRepository,
+  inviteRepository
+} from '@coparenting/db/domain-repositories';
+
 export interface CreateHouseholdInput {
   ownerUserId: string;
   householdName: string;
@@ -47,6 +53,12 @@ export function createHousehold(input: CreateHouseholdInput): HouseholdRecord {
   };
 }
 
+export async function createAndPersistHousehold(input: CreateHouseholdInput): Promise<HouseholdRecord> {
+  const household = createHousehold(input);
+  await householdRepository.create(household);
+  return household;
+}
+
 export function createChild(input: CreateChildInput): ChildRecord {
   return {
     id: `child-${crypto.randomUUID()}`,
@@ -54,6 +66,12 @@ export function createChild(input: CreateChildInput): ChildRecord {
     name: input.name,
     birthdate: input.birthdate
   };
+}
+
+export async function createAndPersistChild(input: CreateChildInput): Promise<ChildRecord> {
+  const child = createChild(input);
+  await childRepository.create(child);
+  return child;
 }
 
 export function createCoParentInvite(input: InviteCoParentInput): HouseholdInviteRecord {
@@ -64,4 +82,12 @@ export function createCoParentInvite(input: InviteCoParentInput): HouseholdInvit
     inviteeEmail: input.inviteeEmail,
     status: 'pending'
   };
+}
+
+export async function createAndPersistCoParentInvite(
+  input: InviteCoParentInput
+): Promise<HouseholdInviteRecord> {
+  const invite = createCoParentInvite(input);
+  await inviteRepository.create(invite);
+  return invite;
 }

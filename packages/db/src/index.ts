@@ -19,3 +19,6 @@ export const initialSchemaScope = [
   'calendar-and-generated-schedule-outputs',
   'conflicts-and-auditability'
 ] as const;
+
+export * from './repositories';
+export * from './domain-repositories';
