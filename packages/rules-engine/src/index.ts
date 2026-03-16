@@ -9,3 +9,5 @@ export const rulesEngineLayers = [
 export * from './types';
 export * from './generate-schedule';
 export * from './generate-handoffs';
+export * from './detect-conflicts';
+export * from './explain-schedule';
